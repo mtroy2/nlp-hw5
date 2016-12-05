@@ -1,7 +1,7 @@
 import os
 import numpy as np
 import math
-
+from random import shuffle
 
 class wordAligner(object):
 
@@ -64,10 +64,39 @@ class wordAligner(object):
             if engSym in engDict.keys():  
                 probSum += math.exp(engDict[engSym])
         
-        if probSum == 0:
+        if probSum == 0.:
             return 1
         else:
             return (num / probSum)
+    def gradDescent(self, T):
+        for t in range(1,T+1):
+            n = math.log(1/t)
+            LL = 0
+            shuffle(self.fileLines)
+            for line in self.fileLines:
+                print(line)
+                line = line.rstrip()
+                splitLine = line.split('\t')
+                chinese = splitLine[0]
+                english = splitLine[1]
+                english = "NULL " + english
+                chinese = chinese.split()
+                english = english.split()
+
+                LL += self.computeProb(chinese, english)
+                Z = 0
+                for i,chiWord in enumerate(chinese):
+                    Z += self.getTProb(chiWord,'NULL')
+                
+                    for engWord in english:
+                        Z += self.getTProb(chiWord,engWord)
+                    for engWord in english:
+                        prob = self.getTProb(chiWord,engWord) / Z # prob that fj's partner is ei
+                        self.lambdaDict[chiWord][engWord] += n+prob
+                        for f in chinese:
+                            self.lambdaDict[f][engWord] -= (n*prob)*self.getTProb(f,engWord)  
+            print('Pass ' + str(t) + ' through training data')
+            print('Log probability = ' + str(LL))          
     def fiveLines(self):
         fiveEng = self.engLines[:5]
         fiveChin = self.chiLines[:5]
@@ -80,3 +109,4 @@ if __name__ == "__main__":
     model = wordAligner()
     model.readLines()
     model.fiveLines()
+    model.gradDescent(10)
