@@ -24,17 +24,18 @@ class wordAligner(object):
             english = english.split()
             self.chiLines.append(chinese)
             self.engLines.append(english)
-            for character in chinese:
-                if character in self.lambdaDict.keys():
-                   for word in english:
-                        if word not in self.lambdaDict[character].keys():
-                            self.lambdaDict[character][word] = 0
+            for engWord in english :
+        
+                if engWord in self.lambdaDict.keys():
+                   for chiWord in chinese:
+                        if chiWord not in self.lambdaDict[engWord].keys():
+                            self.lambdaDict[engWord][chiWord] = 0
                      
                 else:
-                    self.lambdaDict[character] = {}
-                    for word in english:
-                        if word not in self.lambdaDict[character].keys():
-                            self.lambdaDict[character][word] = 0
+                    self.lambdaDict[engWord] = {}
+                    for chiWord in chinese:
+                        if chiWord not in self.lambdaDict[engWord].keys():
+                            self.lambdaDict[engWord][chiWord] = 0
 
 
     def computeProb(self, chiLine, engLine):
@@ -57,17 +58,15 @@ class wordAligner(object):
             return prob
 
     def getTProb(self,chiSym,engSym):
-        num =  math.exp( self.lambdaDict[chiSym][engSym] )
         
-        probSum = 0
-        for chiKey, engDict in self.lambdaDict.items()  :
-            if engSym in engDict.keys():  
-                probSum += math.exp(engDict[engSym])
+        if engSym in self.lambdaDict.keys() and chiSym in self.lambdaDict[engSym].keys():
+            num =  math.exp( self.lambdaDict[engSym][chiSym] )
+            probSum = sum(np.exp(list(self.lambdaDict[engSym].values())))
+            return (num/probSum)
+        else:      
+            return 0
+
         
-        if probSum == 0.:
-            return 1
-        else:
-            return (num / probSum)
     def gradDescent(self, T):
         for t in range(1,T+1):
             n = 1/t
@@ -92,9 +91,9 @@ class wordAligner(object):
                         Z += self.getTProb(chiWord,engWord)
                     for engWord in english:
                         prob = self.getTProb(chiWord,engWord) / Z # prob that fj's partner is ei
-                        self.lambdaDict[chiWord][engWord] += n*prob
+                        self.lambdaDict[engWord][chiWord] += n*prob
                         for f in chinese:
-                            self.lambdaDict[f][engWord] -= (n*prob)*self.getTProb(f,engWord)  
+                            self.lambdaDict[engWord][f] -= (n*prob)*self.getTProb(f,engWord)  
             print('Pass ' + str(t) + ' through training data')
             print('Log probability = ' + str(LL))          
     def fiveLines(self):
