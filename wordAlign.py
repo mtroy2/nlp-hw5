@@ -24,15 +24,15 @@ class wordAligner(object):
             english = english.split()
             self.chiLines.append(chinese)
             self.engLines.append(english)
-            for character in chinese.split():
-                if character in lambdaDict.keys():
-                   for word in english.split():
+            for character in chinese:
+                if character in self.lambdaDict.keys():
+                   for word in english:
                         if word not in self.lambdaDict[character].keys():
                             self.lambdaDict[character][word] = 0
                      
                 else:
                     self.lambdaDict[character] = {}
-                    for word in english.split():
+                    for word in english:
                         if word not in self.lambdaDict[character].keys():
                             self.lambdaDict[character][word] = 0
 
@@ -42,26 +42,41 @@ class wordAligner(object):
         m = len(chiLine)
         l = len(engLine)
         prob = 0
-        for j, chiWord in chiLine:
+        for j, chiWord in enumerate(chiLine):
                 
             engSum = 0
             for engWord in engLine:
                 engSum += self.getTProb( chiWord, engWord )
 
             nullParam = self.getTProb(chiWord, 'NULL')
-            prob += (1/(l+1)) * (nullParam + engSum)
+            prob += math.log((1/(l+1)) * (nullParam + engSum))
 
-        prob = prob / 100
-        return prob
+        if prob == 0 :
+            return 1
+        else:
+            return prob
 
     def getTProb(self,chiSym,engSym):
-        num =  math.exp( self.lambdaDict[chiSum][engSym] )
+        num =  math.exp( self.lambdaDict[chiSym][engSym] )
+        
         probSum = 0
         for chiKey, engDict in self.lambdaDict.items()  :
-            if engSym in engDict.values():
+            if engSym in engDict.keys():  
                 probSum += math.exp(engDict[engSym])
-        return (num / probSum)
+        
+        if probSum == 0:
+            return 1
+        else:
+            return (num / probSum)
+    def fiveLines(self):
+        fiveEng = self.engLines[:5]
+        fiveChin = self.chiLines[:5]
+        for i,chin in enumerate(fiveChin):
+            
+            prob = self.computeProb(chin,fiveEng[i])
+            print('Log prob of line ' + str(i) + ' = ' + str(prob))
+            
 if __name__ == "__main__":
     model = wordAligner()
     model.readLines()
-    
+    model.fiveLines()
