@@ -70,11 +70,11 @@ class wordAligner(object):
             return (num / probSum)
     def gradDescent(self, T):
         for t in range(1,T+1):
-            n = math.log(1/t)
+            n = 1/t
             LL = 0
             shuffle(self.fileLines)
             for line in self.fileLines:
-                print(line)
+                
                 line = line.rstrip()
                 splitLine = line.split('\t')
                 chinese = splitLine[0]
@@ -92,7 +92,7 @@ class wordAligner(object):
                         Z += self.getTProb(chiWord,engWord)
                     for engWord in english:
                         prob = self.getTProb(chiWord,engWord) / Z # prob that fj's partner is ei
-                        self.lambdaDict[chiWord][engWord] += n+prob
+                        self.lambdaDict[chiWord][engWord] += n*prob
                         for f in chinese:
                             self.lambdaDict[f][engWord] -= (n*prob)*self.getTProb(f,engWord)  
             print('Pass ' + str(t) + ' through training data')
@@ -109,4 +109,4 @@ if __name__ == "__main__":
     model = wordAligner()
     model.readLines()
     model.fiveLines()
-    model.gradDescent(10)
+    model.gradDescent(5)
