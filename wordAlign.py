@@ -38,7 +38,7 @@ class wordAligner(object):
                     self.lambdaDict[engWord] = {}
                     self.tProbs[engWord] = {}
                     for chiWord in chinese:
-                        if chiWord not in self.lambdaDict[engWord].keys():
+                        #if chiWord not in self.lambdaDict[engWord].keys():
                             self.lambdaDict[engWord][chiWord] = 0
                             self.tProbs[engWord][chiWord] = 0
         self.popTProbs()
@@ -46,36 +46,26 @@ class wordAligner(object):
         for engWord, chiDict in self.lambdaDict.items():
             probSum = sum(np.exp(list(chiDict.values())))
             for chiWord, prob in chiDict.items():
+                #print('t( ' + engWord + ' | ' + chiWord + ' ) = ' + str(math.exp(prob)) + ' / ' + str(probSum))
                 self.tProbs[engWord][chiWord] = math.exp(prob) / probSum
 
-    def computeProb(self, chiLine, engLine):
-        
-        m = len(chiLine)
-        l = len(engLine)
-        prob = 1
-        for j, chiWord in enumerate(chiLine):
-                
-            engSum = 0
-            for engWord in engLine:
-                engSum += self.tProbs[engWord][chiWord]
 
-            nullParam = self.tProbs['NULL'][chiWord]
-            prob *= ((1/(l+1)) * (nullParam + engSum))
-        if prob == 0 :
-            return 1
-        else:
-            return prob
-    def computeProb1(self,chiLine,engLine):
+    def computeProb(self,chiLine,engLine):
         m = len(chiLine)
         l = len(engLine)
+        ll = l
         prob = 0
         forward = [0]*(m+1)     
         forward[0] = 1
-        for j in range(1,m+1):
-            for i in range(1,l+1):
-                forward[j] += forward[j-1]*(1/l+1)*self.tProbs[engLine[i-1]][chiLine[j-1]]
-            forward[j] += forward[j-1]*(1/l+1)*self.tProbs['NULL'][chiLine[j-1]]
-        return (forward[m] / 100)
+        for j,chiWord in enumerate(chiLine):
+            for i,engWord in enumerate(engLine):
+                forward[j+1] += forward[j]*(1/ll)*self.tProbs[engWord][chiWord]
+            forward[j+1] += forward[j] * (1/ll)*self.tProbs['NULL'][chiWord]
+        #for j in range(1,m+1):
+        #    for i in range(1,l):
+        #        forward[j] += forward[j-1]*(1/ll)*self.tProbs[engLine[i]][chiLine[j-1]]
+        #    forward[j] += forward[j-1]*(1/ll)*self.tProbs['NULL'][chiLine[j-1]]
+        return (forward[m]/100 )
             
 
 
@@ -85,35 +75,36 @@ class wordAligner(object):
             self.tProbs[engWord][chiWord] = math.exp(lam) / probSum
 
     def gradDescent(self, T):
+        shuffleLines = sorted(self.fileLines, key=lambda k: random.random())
         for t in range(1,T+1):
             n = 1/t
             LL = 0
-            shuffleLines = sorted(self.fileLines, key=lambda k: random.random())
+            shuffleLines = sorted(shuffleLines, key=lambda k: random.random())
             for line in shuffleLines:
                 
                 line = line.rstrip()
                 splitLine = line.split('\t')
                 chinese = splitLine[0]
                 english = splitLine[1]
-                english = "NULL " + english
+                #english = "NULL " + english
                 chinese = chinese.split()
                 english = english.split()
-
-                LL += math.log(self.computeProb1(chinese, english))
-                Z = 0
+                LL += math.log(self.computeProb(chinese, english))
+                
                 for i,chiWord in enumerate(chinese):
-                    Z += self.tProbs['NULL'][chiWord]
+                    Z = self.tProbs['NULL'][chiWord]
                 
                     for engWord in english:
                         Z += self.tProbs[engWord][chiWord]
                     for engWord in english:
+                        
                         prob = self.tProbs[engWord][chiWord] / Z # prob that fj's partner is ei
                         self.lambdaDict[engWord][chiWord] += n*prob
                         self.updateTProbs(engWord)
-                        for f in chinese:
+                        for f in self.lambdaDict[engWord].keys():
                             self.lambdaDict[engWord][f] -= (n*prob)*self.tProbs[engWord][f] 
-  
-                        self.updateTProbs(engWord)
+            
+                        
             print('Pass ' + str(t) + ' through training data')
             print('Log probability = ' + str(LL))  
     def test(self,testData):
@@ -143,7 +134,7 @@ class wordAligner(object):
         fiveChin = self.chiLines[:5]
         for i,chin in enumerate(fiveChin):
             
-            prob = math.log(self.computeProb1(chin,fiveEng[i]))
+            prob = math.log(self.computeProb(chin,fiveEng[i]))
             print('Log prob of line ' + str(i) + ' = ' + str(prob))
     def testFive(self):
         fiveLines = self.fileLines[:5]
@@ -154,7 +145,7 @@ class wordAligner(object):
             print("")
     def testAll(self):
         self.test(self.fileLines)
-        outFile = open('myAlignments5.align', 'w')
+        outFile = open('myAlignments.align', 'w')
         for j,lineAlignment in enumerate(self.wordAlignments):
             #outFile.write(self.fileLines[j] + '\n')  
             for i, wordAlignment in enumerate(lineAlignment):
@@ -162,7 +153,11 @@ class wordAligner(object):
                 if wordAlignment != -1:
                     outFile.write( str(i) + '-' + str(wordAlignment) + ' ')
             outFile.write('\n')
-                
+    def getTProb(self,chiWord,engWord):
+        
+        probSum = sum(np.exp(list(self.lambdaDict[engWord].values())))
+        prob = math.exp(self.lambdaDict[engWord][chiWord])
+        return (prob/probSum)
     def wordPairs(self):
         jediTVal      = self.tProbs[ 'jedi']['绝地' ]
         droidTVal     = self.tProbs[ 'droid']['机械人' ]
@@ -178,7 +173,7 @@ if __name__ == "__main__":
     model = wordAligner()
     model.readLines()
     model.fiveLines()
-    model.gradDescent(5)
+    model.gradDescent(10)
     model.wordPairs()
     model.testFive()
     model.testAll()
